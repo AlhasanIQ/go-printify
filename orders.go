@@ -1,7 +1,9 @@
 package go_printify
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -14,8 +16,29 @@ const (
 	cancelOrderPath           = "shops/%d/orders/%d/cancel.json"
 )
 
+type Page struct {
+	CurrentPage  int         `json:"current_page"`
+	Data         interface{} `json:"data"`
+	FirstPageUrl string      `json:"first_page_url"`
+	From         int         `json:"from"`
+	LastPage     int         `json:"last_page"`
+	LastPageUrl  string      `json:"last_page_url"`
+	Links        []*Link     `json:"links"`
+	NextPageUrl  string      `json:"next_page_url"`
+	Path         string      `json:"path"`
+	PerPage      int         `json:"per_page"`
+	PrevPageUrl  string      `json:"prev_page_url"`
+	To           int         `json:"to"`
+	Total        int         `json:"total"`
+}
+
+type Link struct {
+	Url    string `json:"url"`
+	Label  string `json:"label"`
+	Active bool   `json:"active"`
+}
 type Order struct {
-	Id                       *int               `json:"id,omitempty"`
+	Id                       *string            `json:"id,omitempty"`
 	AddressTo                *map[string]string `json:"address_to,omitempty"`
 	LineItems                []*LineItem        `json:"line_items"`
 	Metadata                 *OrderMetadata     `json:"metadata,omitempty"`
@@ -120,16 +143,36 @@ func (c *Client) GetOrderDetails(shopId, orderId int) (*Order, error) {
 }
 
 /*
-Submit an order
+SubmitOrder to printify API
+returns Printify order ID
 */
-func (c *Client) SubmitOrder(shopId int, order *Order) error {
+func (c *Client) SubmitOrder(shopId int, order *Order) (*string, error) {
 	path := fmt.Sprintf(getShopOrdersPath, shopId)
 	req, err := c.newRequest(http.MethodPost, path, order)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = c.do(req, order)
-	return err
+	resp, err := c.do(req, order)
+
+	if err != nil {
+		body, _ := ioutil.ReadAll(resp.Body)
+		// {
+		// 	"id": "5a96f649b2439217d070f507"
+		// }
+
+		var responseData OrderSubmitResponse
+		err = json.Unmarshal(body, &responseData)
+		if err != nil {
+			return nil, err
+		}
+		return responseData.ID, nil
+
+	}
+	return nil, err
+}
+
+type OrderSubmitResponse struct {
+	ID *string `json:"id"`
 }
 
 /*

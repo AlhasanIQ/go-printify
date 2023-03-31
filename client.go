@@ -3,7 +3,6 @@ package go_printify
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,9 +36,10 @@ func NewClient(apiKey string) *Client {
 			Scheme: scheme,
 			Host:   baseURL,
 		},
-		UserAgent:  "go-printify v1.0",
+		UserAgent:  "alhasaniq/go-printify v1.0.2",
 		httpClient: http.DefaultClient,
 		apiKey:     apiKey,
+		ApiVersion: "v1",
 	}
 }
 
@@ -76,7 +76,7 @@ func (c *Client) do(req *http.Request, v interface{}) (*http.Response, error) {
 		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode >= 400 {
-		return resp, errors.New(fmt.Sprintf("%d", resp.StatusCode))
+		return resp, fmt.Errorf("printify API request failed with status:%d", resp.StatusCode)
 	}
 	err = json.NewDecoder(resp.Body).Decode(v)
 	return resp, err
